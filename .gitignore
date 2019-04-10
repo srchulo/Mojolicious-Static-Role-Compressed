@@ -1,0 +1,7 @@
+/Mojolicious-Static-Role-Compressed-*
+/.build
+/_build*
+/Build
+MYMETA.*
+!META.json
+/.prove
