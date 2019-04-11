@@ -1,0 +1,17 @@
+-pbp # Start with Perl Best Practices
+-nst
+-w
+-l=100   # 100 characters per line
+-ce # 'cuddled' elses. elses appear on the same line as last brace
+-pt=2 # no parentheses spacing
+-pt=2    # High parenthesis tightness
+-bt=2    # High brace tightness
+-sbt=2   # High square bracket tightness
+-bar # opening braces right
+-nsbl # open subroutine brace on right
+-bbvt=1 # Block Brace Vertical Tightness
+-sot # stack opening tokens
+-sct # stack closing tokens
+-nsfs # no For Loop Semicolon Spaces
+-nolq # don't outdent long strings
+-isbc # --indent-spaced-block-comments
