@@ -1,0 +1,7 @@
+ignore = **/*.bak
+
+[PerlTidy]
+select = **/*.{pl,pm,t}
+
+[PodTidy]
+select = lib/**/*.{pm,pod}
