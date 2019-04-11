@@ -129,6 +129,8 @@ Mojolicious::Static::Role::Compressed - Role for Mojolicious::Static that serves
 
 =head1 STATUS
 
+=for html <a href="https://travis-ci.org/srchulo/Mojolicious-Static-Role-Compressed"><img src="https://travis-ci.org/srchulo/Mojolicious-Static-Role-Compressed.svg?branch=master"></a>
+
 =head1 SYNOPSIS
 
   # Defaults to serving br assets, then gzip, then falls back to the uncompressed asset.

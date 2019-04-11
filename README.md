@@ -4,6 +4,10 @@ Mojolicious::Static::Role::Compressed - Role for Mojolicious::Static that serves
 
 # STATUS
 
+<div>
+    <a href="https://travis-ci.org/srchulo/Mojolicious-Static-Role-Compressed"><img src="https://travis-ci.org/srchulo/Mojolicious-Static-Role-Compressed.svg?branch=master"></a>
+</div>
+
 # SYNOPSIS
 
     # Defaults to serving br assets, then gzip, then falls back to the uncompressed asset.
@@ -15,7 +19,7 @@ Mojolicious::Static::Role::Compressed - Role for Mojolicious::Static that serves
       Mojolicious::Static->new
           ->with_roles('+Compressed')
           ->compression_types(['br', { ext => 'gzip', encoding => 'gzip'}]) # default ext for gzip is 'gz'. This could also be done as ['br', 'gzip']
-          ->should_serve_asset(sub { $_->path ~= /\.(html|js|css)$/i }) # only try to serve compressed html, js, and css assets. See $_ contains a Mojo::Asset::File
+          ->should_serve_asset(sub { $_->path ~= /\.(html|js|css)$/i }) # only try to serve compressed html, js, and css assets. $_ contains a Mojo::Asset::File
     );
 
     # Look for compressed versions of all assets
@@ -102,8 +106,8 @@ Which may be considered clearer, but will also be less efficient.
 
 # RESERVED STASH KEYS
 
-[Mojolicious::Static::Role::Compressed](https://metacpan.org/pod/Mojolicious::Static::Role::Compressed) uses the stash keys "mojolicious\_static\_role\_compressed.asset" and "mojolicious\_static\_role\_compressed.compression\_type" internally,
-so these should not be used by elsewhere in the [Mojolicious](https://metacpan.org/pod/Mojolicious) app. There are no plans for other stash keys, but other keys under "mojolicious\_static\_role\_compressed.\*" should
+[Mojolicious::Static::Role::Compressed](https://metacpan.org/pod/Mojolicious::Static::Role::Compressed) uses the stash keys `mojolicious_static_role_compressed.asset` and `mojolicious_static_role_compressed.compression_type` internally,
+so these should not be used by elsewhere in the [Mojolicious](https://metacpan.org/pod/Mojolicious) app. There are no plans for other stash keys, but other keys under `mojolicious_static_role_compressed.*` should
 be avoided when using this role.
 
 # AUTHOR
