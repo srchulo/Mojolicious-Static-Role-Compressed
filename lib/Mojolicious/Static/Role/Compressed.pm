@@ -199,8 +199,8 @@ listed in L</compression_types>.
 
 A compressed version of the asset is found that is smaller than the original
 asset. Assets are expected to be located at the path to the original asset,
-followed by a period and the extension: /path/to/asset.css ->
-/path/to/asset.css.gz
+followed by a period and the extension: C</path/to/asset.css> ->
+C</path/to/asset.css.gz>
 
 =back
 
@@ -231,7 +231,7 @@ L</compression_types>:
 This means that br is both the extension used when looking for compressed
 assets, and the encoding used in headers. Assets are expected to be located at
 the path to the original asset, followed by a period and the extension:
-/path/to/asset.css -> /path/to/asset.css.gz
+C</path/to/asset.css> -> C</path/to/asset.css.gz>
 
 Compression types will be checked for in the order they are specified, with the
 first one that matches all of the requirements in L</DESCRIPTION> being used.
