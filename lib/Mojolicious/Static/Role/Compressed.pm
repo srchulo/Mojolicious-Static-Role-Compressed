@@ -150,7 +150,7 @@ serves pre-compressed versions of static assets
 
   # Defaults to serving br assets, then gzip, then falls back to the uncompressed asset.
   # By default, this will not look for compressed versions of PDF, PNG, GIF, JP(E)G, or WEBP files.
-  $app->static(Mojolicious::Static->new->with_roles('+Compressed');
+  $app->static(Mojolicious::Static->new->with_roles('+Compressed'));
 
   # Don't use the defaults
   $app->static(
