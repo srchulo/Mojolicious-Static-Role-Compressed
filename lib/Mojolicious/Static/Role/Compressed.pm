@@ -123,7 +123,9 @@ before serve_asset => sub {
                     . "in If-None-Match '$if_none_match', but asset at $compressed_asset_path does not exist";
             }
         } else {
-            warn "Found expected compression encoding of '$1' in If-None-Match '$if_none_match' for asset '" . $asset->path
+            warn
+                "Found expected compression encoding of '$1' in If-None-Match '$if_none_match' for asset '"
+                . $asset->path
                 . q{'. File may have been deleted.};
         }
     }
@@ -283,11 +285,12 @@ L</compression_types>:
 
 This means that br is both the extension used when looking for compressed
 assets, and the encoding used in headers. Internally, C<'br'> will be converted
-to C<{ext => 'br', encoding => 'br'}>, and this is how it will appear if you call
-L</compression_types> as a getter.
+to C<{ext => 'br', encoding => 'br'}>, and this is how it will appear if you
+call L</compression_types> as a getter.
 
 Assets are expected to be located at the path to the original asset, followed
-by a period and the extension: C</path/to/asset.css> -> C</path/to/asset.css.gz>
+by a period and the extension: C</path/to/asset.css> ->
+C</path/to/asset.css.gz>
 
 Compression types will be checked for in the order they are specified, with the
 first one that matches all of the requirements in L</DESCRIPTION> being used.
