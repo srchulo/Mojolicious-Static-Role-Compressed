@@ -1,33 +1,154 @@
 package Mojolicious::Static::Role::Compressed;
 use Mojo::Base -role;
 use Mojo::Util   ();
+use Carp         ();
 use Scalar::Util ();
 
 our $VERSION = '0.01';
 
-has compression_types  => sub { ['br', {ext => 'gz', encoding => 'gzip'}] };
-has _compression_types => sub {
-    [map { Scalar::Util::reftype($_) ? $_ : {ext => $_, encoding => $_} }
-          @{shift->compression_types}]
-};
+my $served_asset;
+my @compression_types = ({ext => 'br', encoding => 'br'}, {ext => 'gz', encoding => 'gzip'});
 
-has should_serve_asset => sub {
-    sub { $_->path !~ /\.(pdf|jpe?g|gif|png|webp)$/i }
-};
+sub compression_types {
+    return \@compression_types if @_ == 1;
+    my ($self, $types) = @_;
+
+    Carp::croak 'compression_types cannot be changed once serve_asset has been called'
+        if $served_asset;
+    Carp::croak 'compression_types requires an ARRAY ref'
+        unless defined Scalar::Util::reftype($types)
+        and Scalar::Util::reftype($types) eq 'ARRAY';
+    Carp::croak 'compression_types requires a non-empty ARRAY ref' unless @$types;
+
+    my @new_types;
+    my %exts;
+    my %encodings;
+    for (@$types) {
+        my $reftype = Scalar::Util::reftype($_);
+
+        if (not defined $reftype) {
+            Carp::croak 'passed empty value in compression_types' unless defined $_ and $_ ne '';
+            Carp::croak "duplicate ext '$_'"      if exists $exts{$_};
+            Carp::croak "duplicate encoding '$_'" if exists $encodings{$_};
+
+            $exts{$_} = $encodings{$_} = 1;
+
+            push @new_types, {ext => $_, encoding => $_};
+        } elsif ($reftype eq 'HASH') {
+            my ($ext, $encoding) = (delete $_->{ext}, delete $_->{encoding});
+            Carp::croak 'passed empty ext'      unless defined $ext      and $ext ne '';
+            Carp::croak 'passed empty encoding' unless defined $encoding and $encoding ne '';
+            Carp::croak q{extra keys and values passed in hash besides 'ext' and 'encoding': }
+                . Mojo::Util::dumper $_
+                if keys %$_;
+            Carp::croak "duplicate ext '$ext'"           if exists $exts{$ext};
+            Carp::croak "duplicate encoding '$encoding'" if exists $encodings{$encoding};
+
+            $exts{$ext} = $encodings{$encoding} = 1;
+
+            push @new_types, {ext => $ext, encoding => $encoding};
+        } else {
+            Carp::croak 'passed illegal value to compression_types. Each value of '
+                . 'the ARRAY ref must be a scalar or a HASH ref with only the '
+                . "keys 'ext' and 'encoding' and their values, but reftype was '$reftype'";
+        }
+    }
+
+    @compression_types = @new_types;
+
+    return $self;
+}
+
+my $should_serve_asset         = sub { $_->path !~ /\.(pdf|jpe?g|gif|png|webp)$/i };
+my $should_serve_asset_is_code = 1;
+
+sub should_serve_asset {
+    return $should_serve_asset if @_ == 1;
+    my ($self, $sub_or_scalar) = @_;
+
+    my $reftype = Scalar::Util::reftype($sub_or_scalar);
+    Carp::croak
+        "reftype of should_serve_asset must be either undef (scalar) or 'CODE', but was '$reftype'"
+        unless not defined $reftype or $reftype eq 'CODE';
+
+    $should_serve_asset         = $sub_or_scalar;
+    $should_serve_asset_is_code = defined $reftype;
+
+    warn 'should_serve_asset is a scalar that is always false, so compressed '
+        . 'assets will never be served. If this is because you are in development '
+        . 'mode, you should instead just not load this role.'
+        unless $should_serve_asset_is_code or $should_serve_asset;
+
+    return $self;
+}
+
+my $_stash_asset_key            = 'mojolicious_static_role_compressed.asset';
+my $_stash_compression_type_key = 'mojolicious_static_role_compressed.compression_type';
 
 before serve_asset => sub {
     my ($self, $c, $asset) = @_;
-
     return unless $asset->is_file;
-    return unless $self->_should_serve_asset($asset);
 
-    my $req_headers               = $c->req->headers;
-    my $compression_possibilities = $self->_get_compression_possibilities($req_headers);
-    return unless @$compression_possibilities;
+    if ($should_serve_asset_is_code) {
+        local $_ = $asset;
+        return unless $should_serve_asset->();
+    } else {
+        return unless $should_serve_asset;
+    }
 
-    my ($compressed_asset, $compression_type) =
-      $self->_get_compressed_asset_and_compression_type($req_headers->accept_encoding,
-        $asset, $compression_possibilities);
+    my $req_headers     = $c->req->headers;
+    my $accept_encoding = $req_headers->accept_encoding;
+    my @compression_possibilities
+        = $accept_encoding
+        ? grep { $accept_encoding =~ /$_->{encoding}/i } @compression_types
+        : ();
+    return unless @compression_possibilities;
+
+    my ($compressed_asset, $compression_type);
+    if (my $if_none_match = $req_headers->if_none_match) {
+
+        # we previously couldn't match any compressed asset
+        return unless $if_none_match =~ /-(.*)"$/;
+
+        # If none of our encodings match but the format matched, the compressed
+        # asset was probably deleted.
+        if (my ($type) = grep { $_->{encoding} eq $1 } @compression_types) {
+
+            my $compressed_asset_path = $asset->path . '.' . $compression_type->{ext};
+            if (-f -r $compressed_asset_path) {
+                $compressed_asset = Mojo::Asset::File->new(path => $compressed_asset_path);
+                $compression_type = $type;
+            } else {
+                warn "Found compression type with encoding of $compression_type->{encoding} "
+                    . "in If-None-Match '$if_none_match', but asset at $compressed_asset_path does not exist";
+            }
+        } else {
+            warn "Found expected compression encoding of '$1' in If-None-Match '$if_none_match' for asset '" . $asset->path
+                . q{'. File may have been deleted.};
+        }
+    }
+
+    unless ($compressed_asset and $compression_type) {
+        for my $type (@compression_possibilities) {
+            my $path = $asset->path . '.' . $type->{ext};
+            next unless -f -r $path;
+
+            my $comp_asset = Mojo::Asset::File->new(path => $path);
+            if ($comp_asset->size >= $asset->size) {
+                warn 'Compressed asset '
+                    . $comp_asset->path . ' is '
+                    . $comp_asset->size
+                    . ' bytes, and uncompressed asset '
+                    . $asset->path . ' is '
+                    . $asset->size
+                    . ' bytes. Continuing search for compressed assets.';
+                continue;
+            }
+
+            ($compressed_asset, $compression_type) = ($comp_asset, $type);
+            last;
+        }
+    }
     return unless $compressed_asset and $compression_type;
 
     my $res_headers = $c->res->headers;
@@ -38,99 +159,22 @@ before serve_asset => sub {
     $c->app->types->content_type($c, {file => $asset->path});
 
     # set stash with asset for use in is_fresh before method modifier
-    $self->_stash($c, asset            => $asset);
-    $self->_stash($c, compression_type => $compression_type);
+    $c->stash($_stash_asset_key => $asset, $_stash_compression_type_key => $compression_type);
 
     $_[2] = $compressed_asset;
+    $served_asset = 1;
 };
 
 before is_fresh => sub {
     my ($self, $c, $options) = @_;
-    return unless my $asset = $self->_stash($c, 'asset');
-    my $compression_type = $self->_stash($c, 'compression_type');
+    my ($asset, $compression_type) = @{$c->stash}{$_stash_asset_key, $_stash_compression_type_key};
+    return unless $asset and $compression_type;
 
     my $mtime = $asset->mtime;
     my $etag  = Mojo::Util::md5_sum($mtime) . '-' . $compression_type->{encoding};
 
     @$options{qw/last_modified etag/} = ($mtime, $etag);
 };
-
-sub _should_serve_asset {
-    my ($self, $asset) = @_;
-    return 1 unless my $should_serve_asset = $self->should_serve_asset;
-
-    local $_ = $asset;
-    return $should_serve_asset->();
-}
-
-sub _get_compression_possibilities {
-    my ($self, $accept_encoding) = @_;
-    return $accept_encoding
-      ? [grep { $accept_encoding =~ /$_->{encoding}/i } @{$self->_compression_types}]
-      : [];
-}
-
-sub _get_compressed_asset_and_compression_type {
-    my ($self, $headers, $asset, $compression_possibilities) = @_;
-
-    my $match = $headers->if_none_match;
-    if ($match and $match =~ /-(.*)"$/) {
-        if (my @compression_types = grep { $_->{encoding} eq $1 } @{$self->_compression_types}) {
-            if (@compression_types > 1) {
-                warn
-                  "more than one matching compression type found for If-None-Match $match and encoding $1";
-                return;
-            }
-
-            my $compression_type      = $compression_types[0];
-            my $compressed_asset_path = $asset->path . '.' . $compression_type->{ext};
-            my $compressed_asset      = $self->_get_compressed_file($compressed_asset_path);
-            return ($compressed_asset, $compression_type) if $compressed_asset;
-
-            warn
-              "Found compression type with encoding of $compression_type->{encoding} in If-None-Match $match, but asset at $compressed_asset_path does not exist";
-
-            # return and let Mojolicious::Static::is_fresh fail on etag and the uncompressed asset
-            # can be served
-            return;
-        }
-    }
-
-    for my $compression_type (@$compression_possibilities) {
-        next
-          unless my $compressed_asset =
-          $self->_get_compressed_file($asset->path . '.' . $compression_type->{ext});
-        if ($compressed_asset->size >= $asset->size) {
-            warn 'Compressed asset '
-              . $compressed_asset->path . ' is '
-              . $compressed_asset->size
-              . ' bytes, and uncompressed asset '
-              . $asset->path . ' is '
-              . $asset->size
-              . ' bytes. Continuing search for compressed assets.';
-        }
-
-        return ($compressed_asset, $compression_type);
-    }
-
-    return;
-}
-
-sub _get_compressed_file {
-    my ($self, $path) = @_;
-    return -f -r $path ? Mojo::Asset::File->new(path => $path) : undef;
-}
-
-sub _stash {
-    my ($self, $c, $key, $value) = @_;
-
-    $key = "mojolicious_static_role_compressed.$key";
-    if ($value) {
-        $c->stash->{$key} = $value;
-    } else {
-        return $c->stash->{$key};
-    }
-}
 
 1;
 __END__
@@ -148,8 +192,10 @@ serves pre-compressed versions of static assets
 
 =head1 SYNOPSIS
 
-  # Defaults to serving br assets, then gzip, then falls back to the uncompressed asset.
-  # By default, this will not look for compressed versions of PDF, PNG, GIF, JP(E)G, or WEBP files.
+  # Defaults to serving br assets (with extension ".br"), then gzip (with extension ".gz"),
+  # then falls back to the uncompressed asset. By default, this will not look for
+  # compressed versions of PDF, PNG, GIF, JP(E)G, or WEBP files since these files
+  # are already compressed.
   $app->static(Mojolicious::Static->new->with_roles('+Compressed'));
 
   # Don't use the defaults
@@ -164,9 +210,16 @@ serves pre-compressed versions of static assets
   $app->static(
     Mojolicious::Static->new
         ->with_roles('+Compressed')
-        ->should_serve_asset(undef) # No subroutine means look for compressed versions of all assets
-        ->should_serve_asset(sub { 1 }); # Or always return 1
+        ->should_serve_asset(sub { 1 });
   );
+
+  # Or just pass in 1 to look for compressed versions of all assets (slightly faster)
+  $app->static(
+    Mojolicious::Static->new
+        ->with_roles('+Compressed')
+        ->should_serve_asset(1);
+  );
+
 
 =head1 DESCRIPTION
 
@@ -221,25 +274,33 @@ states that ETags should be content-coding aware.
     ->compression_types(['br', {ext => 'gz', encoding => 'gzip'}]); # This is the default
 
 Compression types accepts an arrayref made up of strings and/or hashrefs.
-Strings will be used as the file extension and the encoding type. The encoding
-type is what is used and expected in request and response headers to specify
-the encoding. Below is an example of this and the default for
+Strings will be used as both the file extension and the encoding type. The
+encoding type is what is used and expected in request and response headers to
+specify the encoding. Below is an example of this and the default for
 L</compression_types>:
 
   ['br', {ext => 'gz', encoding => 'gzip'}]
 
 This means that br is both the extension used when looking for compressed
-assets, and the encoding used in headers. Assets are expected to be located at
-the path to the original asset, followed by a period and the extension:
-C</path/to/asset.css> -> C</path/to/asset.css.gz>
+assets, and the encoding used in headers. Internally, C<'br'> will be converted
+to C<{ext => 'br', encoding => 'br'}>, and this is how it will appear if you call
+L</compression_types> as a getter.
+
+Assets are expected to be located at the path to the original asset, followed
+by a period and the extension: C</path/to/asset.css> -> C</path/to/asset.css.gz>
 
 Compression types will be checked for in the order they are specified, with the
 first one that matches all of the requirements in L</DESCRIPTION> being used.
-L</compression_types> should not be changed once L<Mojo::Static> begins serving
-assets, so if you want to change these when the app is already running, you
-should create a new L<Mojolicious::Static> object and add the role and your
-config again (although I'm not sure why you would want to change this once the
-app is already running and serving assets).
+L</compression_types> cannot be changed once L<Mojo::Static> begins serving
+assets (L<Mojo::Static/serve_asset> is called, either directly or indirectly,
+such as by L<Mojo::Static/serve>). If you want to change these when the app is
+already running, you should create a new L<Mojolicious::Static> object and add
+the role and your L</compression_types> again. I'm not sure why you would want
+to change this once the app is already running and serving assets, and this may
+cause assets that are being served in compressed chunks to be re-served as the
+uncompressed asset or a different compressed asset.
+
+C<ext> and C<encoding> must be unique across different compression types.
 
 =head2 should_serve_asset
 
@@ -247,40 +308,44 @@ app is already running and serving assets).
     ->with_roles('+Compressed)
     ->should_serve_asset(sub { $_->path !~ /\.(pdf|jpe?g|gif|png|webp)$/i }); # This is the default
 
-  # undef means try to serve compressed versions of all assets because there is no subroutine to call
-  Mojolicious::Static->new
-    ->with_roles('+Compressed)
-    ->should_serve_asset(undef);
-
-  # subroutine returning 1 also means try to serve compressed versions of all assets.
-  # This may be more clear, but will also be slightly less efficient.
+  # subroutine returning 1 means try to serve compressed versions of all assets.
   Mojolicious::Static->new
     ->with_roles('+Compressed)
     ->should_serve_asset(sub { 1 });
 
-L</should_serve_asset> is a subroutine that determines whether or not
-L<Mojolicious::Static::Role::Compressed> should attempt to serve a compressed
-version of a L<Mojo::Asset::File>. The subroutine is passed the
-L<Mojo::Asset::File> in C<$_>. The default is to not look for compressed
-versions of any assets whose L<Mojo::Asset::File/path> indicates that it is a
-pdf, jpg, gif, png, or webp file, as these file types are already compressed:
+  # using 1 directly also tries to serve compressed versions of all assets and is slightly faster
+  Mojolicious::Static->new
+    ->with_roles('+Compressed')
+    ->should_serve_asset(1);
+
+L</should_serve_asset> is a subroutine (or scalar) that determines whether or
+not L<Mojolicious::Static::Role::Compressed> should attempt to serve a
+compressed version of a L<Mojo::Asset::File>. If it is a subroutine, C<$_> is
+set to the L<Mojo::Asset::File> that will be served. The default is to not look
+for compressed versions of any assets whose L<Mojo::Asset::File/path> indicates
+that it is a pdf, jpg, gif, png, or webp file, as these file types are already
+compressed:
 
   sub { $_->path !~ /\.(pdf|jpe?g|gif|png|webp)$/i }) # default for should_serve_asset
 
-To look for compressed versions of all assets, set L</should_serve_asset> to
-C<undef>:
-
-  Mojolicious::Static->new
-    ->with_roles('+Compressed)
-    ->should_serve_asset(undef);
-
-Or alternatively, set it to a subroutine that returns 1:
+To look for compressed versions of all assets, set L</should_serve_asset> to a
+subroutine that always returns C<1>:
 
   Mojolicious::Static->new
     ->with_roles('+Compressed)
     ->should_serve_asset(sub { 1 });
 
-Which may be considered clearer, but will also be less efficient.
+Or you can set L</should_serve_asset> to 1, which is slightly faster:
+
+  $app->static(
+    Mojolicious::Static->new
+        ->with_roles('+Compressed')
+        ->should_serve_asset(1);
+  );
+
+Setting L</should_serve_asset> to a scalar that evaluates to false, such as
+C<undef>, will cause a warning. If L</should_serve_asset> is a false scalar,
+there is no point int loading L<Mojolicious::Static::Role::Compressed>.
 
 =head1 RESERVED STASH KEYS
 
