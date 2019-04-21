@@ -6,15 +6,15 @@ use Scalar::Util ();
 
 our $VERSION = '0.01';
 
-my $served_asset;
+my $served_compressed_asset;
 my @compression_types = ({ext => 'br', encoding => 'br'}, {ext => 'gz', encoding => 'gzip'});
 
 sub compression_types {
     return \@compression_types if @_ == 1;
     my ($self, $types) = @_;
 
-    Carp::croak 'compression_types cannot be changed once serve_asset has been called'
-        if $served_asset;
+    Carp::croak 'compression_types cannot be changed once serve_asset has served a compressed asset'
+        if $served_compressed_asset;
     Carp::croak 'compression_types requires an ARRAY ref'
         unless defined Scalar::Util::reftype($types)
         and Scalar::Util::reftype($types) eq 'ARRAY';
@@ -164,7 +164,7 @@ before serve_asset => sub {
     $c->stash($_stash_asset_key => $asset, $_stash_compression_type_key => $compression_type);
 
     $_[2] = $compressed_asset;
-    $served_asset = 1;
+    $served_compressed_asset = 1;
 };
 
 before is_fresh => sub {
@@ -198,30 +198,29 @@ serves pre-compressed versions of static assets
   # then falls back to the uncompressed asset. By default, this will not look for
   # compressed versions of PDF, PNG, GIF, JP(E)G, or WEBP files since these files
   # are already compressed.
+  $app->static->with_roles('+Compressed');
+
+  # Mojolicious::Lite
+  app->static->with_roles('+Compressed');
+
+  # or
   $app->static(Mojolicious::Static->new->with_roles('+Compressed'));
 
   # Don't use the defaults
-  $app->static(
-    Mojolicious::Static->new
-        ->with_roles('+Compressed')
-        ->compression_types(['br', { ext => 'gzip', encoding => 'gzip'}]) # default ext for gzip is 'gz'. This could also be done as ['br', 'gzip']
-        ->should_serve_asset(sub { $_->path ~= /\.(html|js|css)$/i }) # only try to serve compressed html, js, and css assets. $_ contains a Mojo::Asset::File
-  );
+  $app->static
+      ->with_roles('+Compressed')
+      ->compression_types(['br', {ext => 'gzip', encoding => 'gzip'}]) # default ext for gzip is 'gz'. This could also be done as ['br', 'gzip']
+      ->should_serve_asset(sub { $_->path =~ /\.(html|js|css)$/i }); # only try to serve compressed html, js, and css assets. $_ contains a Mojo::Asset::File
 
   # Look for compressed versions of all assets
-  $app->static(
-    Mojolicious::Static->new
-        ->with_roles('+Compressed')
-        ->should_serve_asset(sub { 1 });
-  );
+  $app->static
+      ->with_roles('+Compressed')
+      ->should_serve_asset(sub { 1 });
 
   # Or just pass in 1 to look for compressed versions of all assets (slightly faster)
-  $app->static(
-    Mojolicious::Static->new
-        ->with_roles('+Compressed')
-        ->should_serve_asset(1);
-  );
-
+  $app->static
+      ->with_roles('+Compressed')
+      ->should_serve_asset(1);
 
 =head1 DESCRIPTION
 
@@ -271,9 +270,9 @@ states that ETags should be content-coding aware.
 
 =head2 compression_types
 
-  Mojolicious::Static->new
-    ->with_roles('+Compressed)
-    ->compression_types(['br', {ext => 'gz', encoding => 'gzip'}]); # This is the default
+  $app->static
+      ->with_roles('+Compressed)
+      ->compression_types(['br', {ext => 'gz', encoding => 'gzip'}]); # This is the default
 
 Compression types accepts an arrayref made up of strings and/or hashrefs.
 Strings will be used as both the file extension and the encoding type. The
@@ -295,8 +294,9 @@ C</path/to/asset.css.gz>
 Compression types will be checked for in the order they are specified, with the
 first one that matches all of the requirements in L</DESCRIPTION> being used.
 L</compression_types> cannot be changed once L<Mojo::Static> begins serving
-assets (L<Mojo::Static/serve_asset> is called, either directly or indirectly,
-such as by L<Mojo::Static/serve>). If you want to change these when the app is
+compressed assets (L<Mojo::Static/serve_asset> is called, either directly or
+indirectly, such as by L<Mojo::Static/serve>, and we succeed in finding and
+serving a compressed asset). If you want to change these when the app is
 already running, you should create a new L<Mojolicious::Static> object and add
 the role and your L</compression_types> again. I'm not sure why you would want
 to change this once the app is already running and serving assets, and this may
@@ -307,19 +307,19 @@ C<ext> and C<encoding> must be unique across different compression types.
 
 =head2 should_serve_asset
 
-  Mojolicious::Static->new
-    ->with_roles('+Compressed)
-    ->should_serve_asset(sub { $_->path !~ /\.(pdf|jpe?g|gif|png|webp)$/i }); # This is the default
+  $app->static
+      ->with_roles('+Compressed)
+      ->should_serve_asset(sub { $_->path !~ /\.(pdf|jpe?g|gif|png|webp)$/i }); # This is the default
 
   # subroutine returning 1 means try to serve compressed versions of all assets.
-  Mojolicious::Static->new
-    ->with_roles('+Compressed)
-    ->should_serve_asset(sub { 1 });
+  $app->static
+      ->with_roles('+Compressed)
+      ->should_serve_asset(sub { 1 });
 
   # using 1 directly also tries to serve compressed versions of all assets and is slightly faster
-  Mojolicious::Static->new
-    ->with_roles('+Compressed')
-    ->should_serve_asset(1);
+  $app->static
+      ->with_roles('+Compressed')
+      ->should_serve_asset(1);
 
 L</should_serve_asset> is a subroutine (or scalar) that determines whether or
 not L<Mojolicious::Static::Role::Compressed> should attempt to serve a
@@ -334,17 +334,15 @@ compressed:
 To look for compressed versions of all assets, set L</should_serve_asset> to a
 subroutine that always returns C<1>:
 
-  Mojolicious::Static->new
-    ->with_roles('+Compressed)
-    ->should_serve_asset(sub { 1 });
+  $app->static
+      ->with_roles('+Compressed)
+      ->should_serve_asset(sub { 1 });
 
 Or you can set L</should_serve_asset> to 1, which is slightly faster:
 
-  $app->static(
-    Mojolicious::Static->new
-        ->with_roles('+Compressed')
-        ->should_serve_asset(1);
-  );
+  $app->static
+      ->with_roles('+Compressed')
+      ->should_serve_asset(1);
 
 Setting L</should_serve_asset> to a scalar that evaluates to false, such as
 C<undef>, will cause a warning. If L</should_serve_asset> is a false scalar,
