@@ -5,6 +5,9 @@ use Test::Exception;
 use Mojolicious::Static;
 use Mojo::Util ();
 use Mojolicious::Lite;
+use FindBin;
+use lib "$FindBin::Bin/lib";
+use TestHelpers;
 
 throws_ok { Mojolicious::Static->new->with_roles('+Compressed')->compression_types(undef) }
 qr/compression_types requires an ARRAY ref/, 'undef compression_types throws';
@@ -167,20 +170,30 @@ lives_ok { app->static->compression_types(['br', {ext => 'gz', encoding => 'gzip
 my $t = Test::Mojo->new;
 
 # hello.txt has no compressed types
+my $hello_etag          = etag('hello.txt');
+my $hello_last_modified = last_modified('hello.txt');
 $t->get_ok('/hello.txt' => {'Accept-Encoding' => 'br, gzip'})->status_is(200)
+    ->content_type_is('text/plain;charset=UTF-8')->header_is(ETag => $hello_etag)
+    ->header_is('Last-Modified' => $hello_last_modified)
     ->content_is("Hello Mojo from a static file!\n");
 
 lives_ok { app->static->compression_types(['br', {ext => 'gz', encoding => 'gzip'}]) }
 'can set compression_types after serving non-compressed asset';
 
+my ($goodbye_etag, $goodbye_etag_br) = etag('goodbye.txt', 'br');
+my $goodbye_last_modified = last_modified('goodbye.txt');
 $t->get_ok('/goodbye.txt' => {'Accept-Encoding' => 'br, gzip'})->status_is(200)
-    ->content_is("Goodbye Mojo from a br file!\n");
+    ->content_type_is('text/plain;charset=UTF-8')->header_is('Content-Encoding' => 'br')
+    ->header_is(ETag => $goodbye_etag_br)->header_is('Last-Modified' => $goodbye_last_modified)
+    ->header_is(Vary => 'Accept-Encoding')->content_is("Goodbye Mojo from a br file!\n");
 
 throws_ok { app->static->compression_types(['br', {ext => 'gz', encoding => 'gzip'}]) }
 qr/compression_types cannot be changed once serve_asset has served a compressed asset/,
     'cannot set compression_types after serving compressed asset';
 
 $t->get_ok('/hello.txt' => {'Accept-Encoding' => 'br, gzip'})->status_is(200)
+    ->content_type_is('text/plain;charset=UTF-8')->header_is(ETag => $hello_etag)
+    ->header_is('Last-Modified' => $hello_last_modified)
     ->content_is("Hello Mojo from a static file!\n");
 
 throws_ok { app->static->compression_types(['br', {ext => 'gz', encoding => 'gzip'}]) }

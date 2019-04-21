@@ -17,6 +17,7 @@ $t->get_ok('/asset_memory' => {'Accept-Encoding' => 'br, gzip'})->status_is(200)
     ->content_is('Hello Mojo from a memory asset!');
 ok !!$t->tx->res->headers->every_header('Content-Type'),     'content-type header is not set';
 ok !!$t->tx->res->headers->every_header('Content-Encoding'), 'content-encoding header is not set';
+ok !!$t->tx->res->headers->every_header('Last-Modified'),    'last-modified header is not set';
 ok !!$t->tx->res->headers->every_header('Vary'),             'vary header is not set';
 
 done_testing;
