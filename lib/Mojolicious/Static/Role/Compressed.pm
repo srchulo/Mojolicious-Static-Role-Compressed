@@ -99,7 +99,7 @@ before serve_asset => sub {
     my $req_headers     = $c->req->headers;
     my $accept_encoding = $req_headers->accept_encoding;
     my @compression_possibilities
-        = $accept_encoding
+        = defined $accept_encoding && $accept_encoding ne ''
         ? grep { $accept_encoding =~ /$_->{encoding}/i } @compression_types
         : ();
     return unless @compression_possibilities;
