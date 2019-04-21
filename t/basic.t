@@ -13,22 +13,22 @@ my $t = Test::Mojo->new;
 $t->get_ok('/hello.txt' => {'Accept-Encoding' => 'br, gzip'})->status_is(200)
     ->content_type_is('text/plain;charset=UTF-8')->content_is("Hello Mojo from a static file!\n");
 ok !!$t->tx->res->headers->every_header('Content-Encoding'), 'content-encoding header is not set';
-ok !!$t->tx->res->headers->every_header('Vary'),             'content-encoding header is not set';
+ok !!$t->tx->res->headers->every_header('Vary'),             'vary header is not set';
 
 $t->get_ok('/goodbye.txt')->status_is(200)->content_type_is('text/plain;charset=UTF-8')
     ->content_is("Goodbye Mojo from a static file!\n");
 ok !!$t->tx->res->headers->every_header('Content-Encoding'), 'content-encoding header is not set';
-ok !!$t->tx->res->headers->every_header('Vary'),             'content-encoding header is not set';
+ok !!$t->tx->res->headers->every_header('Vary'),             'vary header is not set';
 
 $t->get_ok('/goodbye.txt' => {'Accept-Encoding' => ''})->status_is(200)
     ->content_type_is('text/plain;charset=UTF-8')->content_is("Goodbye Mojo from a static file!\n");
 ok !!$t->tx->res->headers->every_header('Content-Encoding'), 'content-encoding header is not set';
-ok !!$t->tx->res->headers->every_header('Vary'),             'content-encoding header is not set';
+ok !!$t->tx->res->headers->every_header('Vary'),             'vary header is not set';
 
 $t->get_ok('/goodbye.txt' => {'Accept-Encoding' => 'nothing'})->status_is(200)
     ->content_type_is('text/plain;charset=UTF-8')->content_is("Goodbye Mojo from a static file!\n");
 ok !!$t->tx->res->headers->every_header('Content-Encoding'), 'content-encoding header is not set';
-ok !!$t->tx->res->headers->every_header('Vary'),             'content-encoding header is not set';
+ok !!$t->tx->res->headers->every_header('Vary'),             'vary header is not set';
 
 $t->get_ok('/goodbye.txt' => {'Accept-Encoding' => 'br, gzip'})->status_is(200)
     ->content_type_is('text/plain;charset=UTF-8')->header_is('Content-Encoding' => 'br')
