@@ -26,4 +26,6 @@ $static->compression_types([{ext => 'mn', encoding => 'mn-encoding'}, 'op']);
 
 is_deeply $static->compression_types, [{ext => 'mn', encoding => 'mn-encoding'}, {ext => 'op', encoding => 'op'}], 'ext and encoding with no expansion then expansion works';
 
+is $static->compression_types(['br']), $static, 'returns $self when used as a setter';
+
 done_testing;
