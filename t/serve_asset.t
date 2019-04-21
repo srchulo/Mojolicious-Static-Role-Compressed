@@ -7,7 +7,7 @@ local $ENV{MOJO_GZIP} = 0;
 
 app->static->with_roles('+Compressed');
 
-get '/hello'   => sub {
+get '/hello' => sub {
     my ($c) = @_;
     my $asset = $c->app->static->file('hello.txt');
     $c->reply->asset($asset);
