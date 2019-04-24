@@ -224,7 +224,7 @@ $t->get_ok(
 my (undef, $hola_etag_br, $hola_etag_gzip, $hola_etag_deflate)
     = etag('hola.txt', 'br', 'gzip', 'deflate');
 my $hola_last_modified = last_modified('hola.txt');
-my $hola_gzip_path     = app->static->file('hola.txt')->path . '.gz'; # does not exist
+my $hola_gzip_path     = app->static->file('hola.txt')->path . '.gz';    # does not exist
 warnings_like {
     $t->get_ok(
         '/hola.txt' => {
