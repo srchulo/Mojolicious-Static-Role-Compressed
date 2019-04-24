@@ -256,7 +256,7 @@ L<Mojo::Asset::File> (L<Mojo::Asset/is_file> returns C<1>).
 =item *
 
 It is determined that the asset should be served by L</should_serve_asset>
-being C<undef> or a subroutine that returns C<1> for the given
+being a true scalar value or a subroutine that returns true for the given
 L<Mojo::Asset::File>.
 
 =item *
@@ -267,7 +267,7 @@ listed in L</compression_types>.
 =item *
 
 A compressed version of the asset is found that is smaller than the original
-asset. Assets are expected to be located at the path to the original asset,
+asset. Assets are expected to be located at the path of the original asset,
 followed by a period and the extension: C</path/to/asset.css> ->
 C</path/to/asset.css.gz>
 
@@ -302,7 +302,7 @@ assets, and the encoding used in headers. Internally, C<'br'> will be converted
 to C<{ext => 'br', encoding => 'br'}>, and this is how it will appear if you
 call L</compression_types> as a getter.
 
-Assets are expected to be located at the path to the original asset, followed
+Assets are expected to be located at the path of the original asset, followed
 by a period and the extension: C</path/to/asset.css> ->
 C</path/to/asset.css.gz>
 
@@ -361,7 +361,7 @@ Or you can set L</should_serve_asset> to 1, which is slightly faster:
 
 Setting L</should_serve_asset> to a scalar that evaluates to false, such as
 C<undef>, will cause a warning. If L</should_serve_asset> is a false scalar,
-there is no point int loading L<Mojolicious::Static::Role::Compressed>.
+there is no point in loading L<Mojolicious::Static::Role::Compressed>.
 
 =head1 RESERVED STASH KEYS
 
