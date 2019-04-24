@@ -96,7 +96,7 @@ before serve_asset => sub {
         return unless $should_serve_asset;
     }
 
-    my $req_headers     = $c->req->headers;
+    my $req_headers = $c->req->headers;
     my ($compressed_asset, $compression_type);
     if (my $if_none_match_header = $req_headers->if_none_match) {
         my @if_none_matches = map { Mojo::Util::trim $_ } split ',', $if_none_match_header;
