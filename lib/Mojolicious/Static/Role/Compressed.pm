@@ -159,7 +159,7 @@ before serve_asset => sub {
                     . $asset->path . ' is '
                     . $asset->size
                     . ' bytes. Continuing search for compressed assets.';
-                continue;
+                next;
             }
 
             ($compressed_asset, $compression_type) = ($comp_asset, $type);
