@@ -40,7 +40,7 @@
             "Class::Method::Modifiers" : "1.05",
             "Mojolicious" : "7.94",
             "Role::Tiny" : "2.000001",
-            "perl" : "5.010001"
+            "perl" : "5.012000"
          }
       },
       "test" : {
