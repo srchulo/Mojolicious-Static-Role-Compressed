@@ -51,12 +51,12 @@ following conditions are met:
 - The asset passed to ["serve\_asset" in Mojolicious::Static](https://metacpan.org/pod/Mojolicious::Static#serve_asset) is a
 [Mojo::Asset::File](https://metacpan.org/pod/Mojo::Asset::File) (["is\_file" in Mojo::Asset](https://metacpan.org/pod/Mojo::Asset#is_file) returns `1`).
 - It is determined that the asset should be served by ["should\_serve\_asset"](#should_serve_asset)
-being `undef` or a subroutine that returns `1` for the given
+being a true scalar value or a subroutine that returns true for the given
 [Mojo::Asset::File](https://metacpan.org/pod/Mojo::Asset::File).
 - ["accept\_encoding" in Mojo::Headers](https://metacpan.org/pod/Mojo::Headers#accept_encoding) for the request contains at least one encoding
 listed in ["compression\_types"](#compression_types).
 - A compressed version of the asset is found that is smaller than the original
-asset. Assets are expected to be located at the path to the original asset,
+asset. Assets are expected to be located at the path of the original asset,
 followed by a period and the extension: `/path/to/asset.css` ->
 `/path/to/asset.css.gz`
 
@@ -89,7 +89,7 @@ assets, and the encoding used in headers. Internally, `'br'` will be converted
 to `{ext =` 'br', encoding => 'br'}>, and this is how it will appear if you
 call ["compression\_types"](#compression_types) as a getter.
 
-Assets are expected to be located at the path to the original asset, followed
+Assets are expected to be located at the path of the original asset, followed
 by a period and the extension: `/path/to/asset.css` ->
 `/path/to/asset.css.gz`
 
@@ -148,7 +148,7 @@ Or you can set ["should\_serve\_asset"](#should_serve_asset) to 1, which is slig
 
 Setting ["should\_serve\_asset"](#should_serve_asset) to a scalar that evaluates to false, such as
 `undef`, will cause a warning. If ["should\_serve\_asset"](#should_serve_asset) is a false scalar,
-there is no point int loading [Mojolicious::Static::Role::Compressed](https://metacpan.org/pod/Mojolicious::Static::Role::Compressed).
+there is no point in loading [Mojolicious::Static::Role::Compressed](https://metacpan.org/pod/Mojolicious::Static::Role::Compressed).
 
 # RESERVED STASH KEYS
 
