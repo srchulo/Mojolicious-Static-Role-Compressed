@@ -97,38 +97,53 @@ before serve_asset => sub {
     }
 
     my $req_headers     = $c->req->headers;
+    my ($compressed_asset, $compression_type);
+    if (my $if_none_match_header = $req_headers->if_none_match) {
+        my @if_none_matches = map { Mojo::Util::trim $_ } split ',', $if_none_match_header;
+
+        for my $if_none_match (@if_none_matches) {
+            if (my ($expected_encoding) = $if_none_match =~ /-(.+)"$/) {
+                if (my ($type) = grep { $_->{encoding} eq $expected_encoding } @compression_types) {
+
+                    my $compressed_asset_path = $asset->path . '.' . $type->{ext};
+                    if (-f -r $compressed_asset_path) {
+                        my $comp_asset = Mojo::Asset::File->new(path => $compressed_asset_path);
+                        my $etag
+                            = '"'
+                            . Mojo::Util::md5_sum($asset->mtime) . '-'
+                            . $type->{encoding} . '"';
+
+                        if ($etag eq $if_none_match) {
+                            $compressed_asset = $comp_asset;
+                            $compression_type = $type;
+                            last;
+                        }
+                    } else {
+                        warn "Found compression type with encoding of $type->{encoding} "
+                            . "in If-None-Match '$if_none_match', but asset at $compressed_asset_path does not exist, is a directory, or is unreadable.";
+                    }
+                } else {
+                    warn
+                        "Found expected compression encoding of '$expected_encoding' in If-None-Match '$if_none_match' for asset '"
+                        . $asset->path
+                        . q{', but encoding does not exist.};
+                }
+            } else {
+                my $etag = '"' . Mojo::Util::md5_sum($asset->mtime) . '"';
+
+                # return if If-None-Match matches the uncompressed asset
+                return if $etag eq $if_none_match;
+            }
+
+        }
+    }
+
     my $accept_encoding = $req_headers->accept_encoding;
     my @compression_possibilities
         = defined $accept_encoding && $accept_encoding ne ''
         ? grep { $accept_encoding =~ /$_->{encoding}/i } @compression_types
         : ();
     return unless @compression_possibilities;
-
-    my ($compressed_asset, $compression_type);
-    if (my $if_none_match = $req_headers->if_none_match) {
-
-        # we previously couldn't match any compressed asset
-        return unless $if_none_match =~ /-(.*)"$/;
-
-        # If none of our encodings match but the format matched, the compressed
-        # asset was probably deleted.
-        if (my ($type) = grep { $_->{encoding} eq $1 } @compression_types) {
-
-            my $compressed_asset_path = $asset->path . '.' . $compression_type->{ext};
-            if (-f -r $compressed_asset_path) {
-                $compressed_asset = Mojo::Asset::File->new(path => $compressed_asset_path);
-                $compression_type = $type;
-            } else {
-                warn "Found compression type with encoding of $compression_type->{encoding} "
-                    . "in If-None-Match '$if_none_match', but asset at $compressed_asset_path does not exist";
-            }
-        } else {
-            warn
-                "Found expected compression encoding of '$1' in If-None-Match '$if_none_match' for asset '"
-                . $asset->path
-                . q{'. File may have been deleted.};
-        }
-    }
 
     unless ($compressed_asset and $compression_type) {
         for my $type (@compression_possibilities) {
