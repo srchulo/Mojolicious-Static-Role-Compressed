@@ -40,12 +40,14 @@
             "Class::Method::Modifiers" : "1.05",
             "Mojolicious" : "7.94",
             "Role::Tiny" : "2.000001",
-            "perl" : "5.008005"
+            "perl" : "5.010001"
          }
       },
       "test" : {
          "requires" : {
-            "Test::More" : "0.96"
+            "Test::Exception" : "0",
+            "Test::More" : "0.96",
+            "Test::Warn" : "0"
          }
       }
    },
