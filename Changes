@@ -1,6 +1,7 @@
 Revision history for Mojolicious-Static-Role-Compressed
 
 {{$NEXT}}
+        - Use index instead of regex to detect allowed encodings from the Accept-Encoding header.
 
 0.01  2019-04-23 23:15:14 CDT
         - Initial release
