@@ -4,7 +4,7 @@ use Mojo::Util   ();
 use Carp         ();
 use Scalar::Util ();
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 my $served_compressed_asset;
 my @compression_types = ({ext => 'br', encoding => 'br'}, {ext => 'gz', encoding => 'gzip'});
