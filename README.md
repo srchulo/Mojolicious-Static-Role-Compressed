@@ -73,7 +73,7 @@ states that ETags should be content-coding aware.
 ## compression\_types
 
     $app->static
-        ->with_roles('+Compressed)
+        ->with_roles('+Compressed')
         ->compression_types(['br', {ext => 'gz', encoding => 'gzip'}]); # This is the default
 
 Compression types accepts an arrayref made up of strings and/or hashrefs.
@@ -110,12 +110,12 @@ uncompressed asset or a different compressed asset.
 ## should\_serve\_asset
 
     $app->static
-        ->with_roles('+Compressed)
+        ->with_roles('+Compressed')
         ->should_serve_asset(sub { $_->path !~ /\.(pdf|jpe?g|gif|png|webp)$/i }); # This is the default
 
     # subroutine returning 1 means try to serve compressed versions of all assets.
     $app->static
-        ->with_roles('+Compressed)
+        ->with_roles('+Compressed')
         ->should_serve_asset(sub { 1 });
 
     # using 1 directly also tries to serve compressed versions of all assets and is slightly faster
@@ -137,7 +137,7 @@ To look for compressed versions of all assets, set ["should\_serve\_asset"](#sho
 subroutine that always returns `1`:
 
     $app->static
-        ->with_roles('+Compressed)
+        ->with_roles('+Compressed')
         ->should_serve_asset(sub { 1 });
 
 Or you can set ["should\_serve\_asset"](#should_serve_asset) to 1, which is slightly faster:

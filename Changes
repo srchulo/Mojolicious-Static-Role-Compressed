@@ -1,6 +1,8 @@
 Revision history for Mojolicious-Static-Role-Compressed
 
 {{$NEXT}}
+
+0.04  2019-10-04 14:35:00 CDT
         - Fixed minor typo in the pod (@manwar).
 
 0.03  2019-05-07 20:46:36 CDT
