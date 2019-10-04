@@ -1,6 +1,7 @@
 Revision history for Mojolicious-Static-Role-Compressed
 
 {{$NEXT}}
+        - Fixed minor typo in the pod (@manwar).
 
 0.03  2019-05-07 20:46:36 CDT
         - Lowercase encodings ahead of time.
